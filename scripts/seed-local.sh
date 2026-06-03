@@ -18,6 +18,6 @@ eval "$status"
 
 echo "🌱 Sembrando en Supabase local: ${API_URL}"
 exec env \
-  VITE_SUPABASE_URL="${API_URL:?}" \
+  NEXT_PUBLIC_SUPABASE_URL="${API_URL:?}" \
   SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:?}" \
   node --env-file=.env supabase/seed.mjs

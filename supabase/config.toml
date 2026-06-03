@@ -1,10 +1,2 @@
 # Identificador local del proyecto (no es tu project-ref remoto).
 project_id = "gastos"
-
-# La función basiq se llama desde el cliente; requiere sesión (JWT) válida.
-[functions.basiq]
-verify_jwt = true
-
-# La función classify usa la IA; requiere sesión (JWT) válida.
-[functions.classify]
-verify_jwt = true
