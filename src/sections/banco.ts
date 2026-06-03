@@ -1,7 +1,8 @@
 import { connectBank, fetchTransactions, type BasiqTransaction } from '../utils/basiq';
 import { isSupabaseConfigured } from '../utils/supabase';
+import { mesDesdeFecha } from './movimientos';
 import { fmtAUD } from '../utils/format';
-import type { AppState } from '../types';
+import type { AppState, Movimiento } from '../types';
 
 export function renderBanco(state: AppState, container: HTMLElement, onUpdate: () => void): void {
   if (!isSupabaseConfigured()) {
@@ -39,7 +40,10 @@ export function renderBanco(state: AppState, container: HTMLElement, onUpdate: (
     </div>
 
     <div class="card" style="margin-top:1.5rem">
-      <h3>Movimientos</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+        <h3>Movimientos del banco</h3>
+        <button id="btn-import-mov" class="btn-primary" disabled>📲 Importar a Movimientos</button>
+      </div>
       <div class="table-wrapper">
         <table class="data-table" id="tx-table">
           <thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead>
@@ -73,17 +77,50 @@ export function renderBanco(state: AppState, container: HTMLElement, onUpdate: (
     }
   });
 
+  let ultimasTxs: BasiqTransaction[] = [];
+  const importBtn = container.querySelector<HTMLButtonElement>('#btn-import-mov');
+
   fetchBtn?.addEventListener('click', async () => {
     if (!state.basiqUserId) return;
     setMsg('⏳ Trayendo movimientos…');
     try {
-      const txs = await fetchTransactions(state.basiqUserId);
-      renderTransactions(container, txs);
-      setMsg(`✅ ${txs.length} movimientos cargados.`);
+      ultimasTxs = await fetchTransactions(state.basiqUserId);
+      renderTransactions(container, ultimasTxs);
+      const gastos = ultimasTxs.filter(esGasto).length;
+      if (importBtn) importBtn.disabled = gastos === 0;
+      setMsg(`✅ ${ultimasTxs.length} movimientos cargados (${gastos} gastos importables).`);
     } catch (e) {
       setMsg(`❌ Error: ${e instanceof Error ? e.message : String(e)}`);
     }
   });
+
+  importBtn?.addEventListener('click', () => {
+    const existentes = new Set(state.movimientos.map(m => m.id));
+    let n = 0;
+    ultimasTxs.filter(esGasto).forEach(t => {
+      if (existentes.has(t.id)) return;
+      const monto = Math.abs(parseFloat(t.amount) || 0);
+      const fecha = (t.postDate ?? '').slice(0, 10);
+      const mov: Movimiento = {
+        id: t.id,
+        fecha,
+        descripcion: t.description ?? '(sin descripción)',
+        monto,
+        categoria: '',
+        mes: mesDesdeFecha(fecha),
+        origen: 'basiq',
+      };
+      state.movimientos.push(mov);
+      n++;
+    });
+    onUpdate();
+    setMsg(`✅ Importados ${n} gastos nuevos a Movimientos. Ve a 🧾 Movimientos y pulsa "Clasificar con IA".`);
+  });
+}
+
+/** Un gasto = débito (monto negativo o direction 'debit'). */
+function esGasto(t: BasiqTransaction): boolean {
+  return t.direction === 'debit' || (parseFloat(t.amount) || 0) < 0;
 }
 
 function renderTransactions(container: HTMLElement, txs: BasiqTransaction[]): void {

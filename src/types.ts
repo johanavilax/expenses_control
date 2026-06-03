@@ -48,11 +48,28 @@ export interface KpiResult extends KpiLimit {
 /** Per-month, per-category budgeted amounts. */
 export type Presupuesto = Record<string, Record<string, number>>;
 
+/** Un movimiento/gasto individual, clasificable y editable. */
+export interface Movimiento {
+  id: string;
+  /** Fecha ISO (YYYY-MM-DD). */
+  fecha: string;
+  descripcion: string;
+  /** Monto del gasto en AUD (positivo). */
+  monto: number;
+  /** id de BUDGET_CATEGORIES, o '' si está sin clasificar. */
+  categoria: string;
+  /** Mes al que pertenece, p.ej. "May-26". */
+  mes: string;
+  origen: 'basiq' | 'manual';
+}
+
 export interface AppState {
   config: Config;
   presupuesto: Presupuesto;
   colchon_real: Record<string, number>;
   notas: Record<string, string>;
+  /** Movimientos individuales (de Basiq o manuales). */
+  movimientos: Movimiento[];
   currentMonth?: string;
   /** ID del usuario en Basiq, tras conectar la cuenta bancaria. */
   basiqUserId?: string;

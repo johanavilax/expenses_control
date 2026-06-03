@@ -1,4 +1,7 @@
 import { loadState, saveState, resetState, pushStateToCloud, pullStateFromCloud } from './utils/storage';
+import { getCurrentUser, signOut, type SessionUser } from './utils/auth';
+import { isSupabaseConfigured } from './utils/supabase';
+import { renderLogin } from './sections/login';
 import { renderDashboard } from './sections/dashboard';
 import { renderPresupuesto } from './sections/presupuesto';
 import { renderMetas } from './sections/metas';
@@ -6,6 +9,7 @@ import { renderProyeccion } from './sections/proyeccion';
 import { renderColchon } from './sections/colchon';
 import { renderColombia } from './sections/colombia';
 import { renderBanco } from './sections/banco';
+import { renderMovimientos } from './sections/movimientos';
 import { renderConfiguracion } from './sections/configuracion';
 import type { AppState } from './types';
 
@@ -17,6 +21,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', icon: '🏠', label: 'Dashboard' },
+  { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
   { id: 'presupuesto', icon: '💰', label: 'Presupuesto' },
   { id: 'metas', icon: '🎯', label: 'Metas' },
   { id: 'proyeccion', icon: '🚀', label: 'Proyección LF' },
@@ -29,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
 let state: AppState = loadState();
 state.currentMonth = state.currentMonth || 'May-26';
 let currentSection = 'dashboard';
+let user: SessionUser | null = null;
 
 function navigate(section: string): void {
   currentSection = section;
@@ -46,6 +52,7 @@ function renderSection(section: string): void {
     content.classList.remove('transitioning');
     switch (section) {
       case 'dashboard': renderDashboard(state, content); break;
+      case 'movimientos': renderMovimientos(state, content, handleUpdate); break;
       case 'presupuesto': renderPresupuesto(state, content, handleUpdate); break;
       case 'metas': renderMetas(state, content); break;
       case 'proyeccion': renderProyeccion(state, content); break;
@@ -59,14 +66,14 @@ function renderSection(section: string): void {
 
 function handleUpdate(): void {
   saveState(state);
-  void pushStateToCloud(state);
+  void pushStateToCloud(state, user?.id ?? null);
   updateSaveBtnVisibility(false);
   if (currentSection === 'dashboard') renderSection('dashboard');
 }
 
 /** Trae el estado de la nube al arrancar; si existe, reemplaza el local y re-renderiza. */
 async function hydrateFromCloud(): Promise<void> {
-  const remote = await pullStateFromCloud();
+  const remote = await pullStateFromCloud(user?.id ?? null);
   if (!remote) return;
   state = remote;
   state.currentMonth = state.currentMonth || 'May-26';
@@ -85,9 +92,22 @@ function updateSaveBtnVisibility(show: boolean): void {
   if (btn) btn.style.opacity = show ? '1' : '0';
 }
 
-export function initApp(): void {
+/** Punto de entrada: si Supabase está activo, exige login; si no, abre directo. */
+export async function initApp(): Promise<void> {
   const app = document.getElementById('app');
   if (!app) return;
+
+  if (isSupabaseConfigured()) {
+    user = await getCurrentUser();
+    if (!user) {
+      renderLogin(app, () => { void initApp(); });
+      return;
+    }
+  }
+  renderShell(app);
+}
+
+function renderShell(app: HTMLElement): void {
   app.innerHTML = `
     <div class="layout">
       <aside class="sidebar">
@@ -107,7 +127,8 @@ export function initApp(): void {
           `).join('')}
         </nav>
         <div class="sidebar-footer">
-          <div class="sidebar-footer-text">🎯 FI en ~20 años</div>
+          ${user ? `<div class="sidebar-footer-text" style="font-size:0.75rem;opacity:0.7">${user.email}</div>` : ''}
+          <button id="btn-logout" class="btn-secondary" style="width:100%;margin-top:0.5rem">Cerrar sesión</button>
         </div>
       </aside>
 
@@ -139,25 +160,27 @@ export function initApp(): void {
       const section = el.dataset.section;
       if (!section) return;
       navigate(section);
-      // Update bottom nav
       document.querySelectorAll<HTMLElement>('.bottom-nav-item').forEach(b => b.classList.toggle('active', b.dataset.section === section));
-      // Update topbar title
       const title = NAV_ITEMS.find(n => n.id === section)?.label || '';
       const topbarTitle = document.getElementById('topbar-title');
       if (topbarTitle) topbarTitle.textContent = title;
-      // Close sidebar on mobile
       document.querySelector('.sidebar')?.classList.remove('open');
     });
   });
 
-  // Hamburger
   document.getElementById('hamburger')?.addEventListener('click', () => {
     document.querySelector('.sidebar')?.classList.toggle('open');
+  });
+
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await signOut();
+    user = null;
+    void initApp();
   });
 
   // Initial render
   renderSection('dashboard');
 
-  // Sincroniza con la nube (no-op si Supabase no está configurado)
+  // Sincroniza con la nube (no-op si Supabase no está configurado o sin sesión)
   void hydrateFromCloud();
 }

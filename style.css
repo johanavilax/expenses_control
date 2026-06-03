@@ -322,3 +322,19 @@ th.sticky-col { z-index: 3; }
   .col-2, .donuts-row, .calc-sliders { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Pantalla de login ── */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+}
+.auth-card .config-field { margin-bottom: 0.75rem; }
+.auth-card .config-actions { display: flex; gap: 0.5rem; }
+.auth-card .btn-primary, .auth-card .btn-secondary { flex: 1; }

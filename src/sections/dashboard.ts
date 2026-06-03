@@ -1,6 +1,16 @@
 import { calcIngreso, calcTotalGasto, calcFiNumber, calcKPIs } from '../utils/calculations';
 import { fmtAUD, fmtPct } from '../utils/format';
+import { BUDGET_CATEGORIES } from '../data/defaultConfig';
 import type { AppState } from '../types';
+
+/** Suma de movimientos reales por categoría para un mes. */
+function realPorCategoria(state: AppState, mes: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  state.movimientos.filter(m => m.mes === mes && m.categoria).forEach(m => {
+    out[m.categoria] = (out[m.categoria] || 0) + m.monto;
+  });
+  return out;
+}
 
 export function renderDashboard(state: AppState, container: HTMLElement): void {
   const { config, presupuesto } = state;
@@ -13,6 +23,16 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
   const fiNumber = calcFiNumber(config);
   const progreso = config.capital_inicial / fiNumber;
   const kpis = calcKPIs(config, presupuesto, mes);
+
+  // Real (movimientos) vs presupuesto por categoría
+  const real = realPorCategoria(state, mes);
+  const filas = BUDGET_CATEGORIES.map(c => {
+    const pres = presupuesto?.[mes]?.[c.id] ?? c.budget;
+    const r = real[c.id] ?? 0;
+    return { label: c.label, pres, real: r, diff: r - pres };
+  }).filter(f => f.pres > 0 || f.real > 0);
+  const totalReal = Object.values(real).reduce((a, b) => a + b, 0);
+  const sinClasif = state.movimientos.filter(m => m.mes === mes && !m.categoria).length;
 
   container.innerHTML = `
     <div class="section-header">
@@ -76,6 +96,30 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
             </div>
           </div>
         `).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+        <h3>📋 Presupuesto vs Real — ${mes}</h3>
+        <span style="opacity:0.75">Gasto real: <strong>${fmtAUD(totalReal)}</strong>${sinClasif ? ` · ⚠️ ${sinClasif} sin clasificar` : ''}</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Categoría</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Real</th><th style="text-align:right">Diferencia</th></tr></thead>
+          <tbody>
+            ${filas.map(f => {
+              const cls = f.diff > 0 ? 'red' : f.diff < 0 ? 'green' : '';
+              const signo = f.diff > 0 ? '+' : '';
+              return `<tr>
+                <td>${f.label}</td>
+                <td style="text-align:right">${fmtAUD(f.pres)}</td>
+                <td style="text-align:right">${f.real ? fmtAUD(f.real) : '—'}</td>
+                <td style="text-align:right" class="${cls}">${f.real ? signo + fmtAUD(f.diff) : '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
