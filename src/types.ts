@@ -48,19 +48,23 @@ export interface KpiResult extends KpiLimit {
 /** Per-month, per-category budgeted amounts. */
 export type Presupuesto = Record<string, Record<string, number>>;
 
-/** Un movimiento/gasto individual, clasificable y editable. */
+export type MovimientoTipo = 'gasto' | 'ingreso';
+
+/** Un movimiento individual (gasto o ingreso), clasificable y editable. */
 export interface Movimiento {
   id: string;
   /** Fecha ISO (YYYY-MM-DD). */
   fecha: string;
   descripcion: string;
-  /** Monto del gasto en AUD (positivo). */
+  /** Monto en AUD (positivo). Su signo lo define `tipo`. */
   monto: number;
-  /** id de BUDGET_CATEGORIES, o '' si está sin clasificar. */
+  /** Gasto (sale) o ingreso (entra, p.ej. inversiones). */
+  tipo: MovimientoTipo;
+  /** id de BUDGET_CATEGORIES, o '' si está sin clasificar / es ingreso. */
   categoria: string;
   /** Mes al que pertenece, p.ej. "May-26". */
   mes: string;
-  origen: 'basiq' | 'manual';
+  origen: 'basiq' | 'manual' | 'csv';
 }
 
 export interface AppState {

@@ -28,7 +28,7 @@ function normalize(state: Partial<AppState>): AppState {
   return {
     ...emptyState(),
     ...state,
-    movimientos: state.movimientos ?? [],
+    movimientos: (state.movimientos ?? []).map(m => ({ ...m, tipo: m.tipo ?? 'gasto' })),
   };
 }
 

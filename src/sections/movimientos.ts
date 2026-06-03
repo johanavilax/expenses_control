@@ -1,6 +1,7 @@
 import { BUDGET_CATEGORIES, MONTHS } from '../data/defaultConfig';
 import { classifyMovimientos } from '../utils/classify';
 import { isSupabaseConfigured } from '../utils/supabase';
+import { parseCsv } from '../utils/csv';
 import { fmtAUD } from '../utils/format';
 import type { AppState, Movimiento } from '../types';
 
@@ -41,7 +42,7 @@ function monthSelect(selected: string, cls: string, dataId: string): string {
 export function renderMovimientos(state: AppState, container: HTMLElement, onUpdate: () => void): void {
   const mes = state.currentMonth || MONTHS[0];
   const delMes = state.movimientos.filter(m => m.mes === mes);
-  const sinClasificar = delMes.filter(m => !m.categoria).length;
+  const sinClasificar = delMes.filter(m => m.tipo === 'gasto' && !m.categoria).length;
 
   container.innerHTML = `
     <div class="section-header">
@@ -53,35 +54,45 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
 
     <div class="card">
       <div class="config-actions" style="margin-bottom:1rem;flex-wrap:wrap">
-        <button id="btn-classify" class="btn-primary" ${isSupabaseConfigured() ? '' : 'disabled title="Requiere Supabase"'}>
+        <button id="btn-classify" class="btn-primary" ${isSupabaseConfigured() ? '' : 'disabled'}>
           🤖 Clasificar con IA${sinClasificar ? ` (${sinClasificar} sin clasificar)` : ''}
         </button>
+        <button id="btn-csv" class="btn-secondary">📄 Subir CSV</button>
         <button id="btn-add" class="btn-secondary">➕ Añadir manual</button>
+        <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none">
       </div>
 
       <div class="add-form" id="add-form" style="display:none;gap:0.5rem;flex-wrap:wrap;align-items:end;margin-bottom:1rem">
+        <div class="config-field"><label>Tipo</label>
+          <select id="m-tipo" class="config-input">
+            <option value="gasto">Gasto</option>
+            <option value="ingreso">Ingreso por inversión</option>
+          </select></div>
         <div class="config-field"><label>Fecha</label><input type="date" id="m-fecha" class="config-input"></div>
-        <div class="config-field" style="flex:2"><label>Descripción</label><input type="text" id="m-desc" class="config-input" placeholder="Ej: Woolworths"></div>
+        <div class="config-field" style="flex:2"><label>Descripción</label><input type="text" id="m-desc" class="config-input" placeholder="Ej: Woolworths / Dividendos VAS"></div>
         <div class="config-field"><label>Monto (A$)</label><input type="number" id="m-monto" class="config-input" min="0" step="0.01"></div>
-        <div class="config-field"><label>Categoría</label>${categorySelect('', 'config-input', 'new')}</div>
+        <div class="config-field" id="m-cat-wrap"><label>Categoría</label>${categorySelect('', 'config-input', 'new')}</div>
         <button id="btn-add-save" class="btn-primary">Guardar</button>
       </div>
 
       <div class="table-wrapper">
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th><th>Categoría</th><th>Mes</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th><th>Categoría / Tipo</th><th>Mes</th><th></th></tr></thead>
           <tbody id="mov-body">
             ${delMes.length === 0
-              ? `<tr><td colspan="6" style="opacity:0.6">Sin movimientos en ${mes}. Importa desde 🏦 Banco o añade manual.</td></tr>`
-              : delMes.map(m => `
-                <tr ${m.categoria ? '' : 'class="highlight-row"'}>
+              ? `<tr><td colspan="6" style="opacity:0.6">Sin movimientos en ${mes}. Importa de 🏦 Banco, sube un CSV o añade manual.</td></tr>`
+              : delMes.map(m => {
+                const esIng = m.tipo === 'ingreso';
+                const resaltar = !esIng && !m.categoria;
+                return `<tr ${resaltar ? 'class="highlight-row"' : ''}>
                   <td>${m.fecha?.slice(0, 10) ?? ''}</td>
                   <td>${m.descripcion}</td>
-                  <td style="text-align:right">${fmtAUD(m.monto)}</td>
-                  <td>${categorySelect(m.categoria, 'cat-select', m.id)}</td>
+                  <td style="text-align:right" class="${esIng ? 'green' : ''}">${esIng ? '+' : ''}${fmtAUD(m.monto)}</td>
+                  <td>${esIng ? '💰 Ingreso inversión' : categorySelect(m.categoria, 'cat-select', m.id)}</td>
                   <td>${monthSelect(m.mes, 'mes-select', m.id)}</td>
                   <td><button class="btn-danger btn-del" data-id="${m.id}" title="Eliminar">🗑️</button></td>
-                </tr>`).join('')}
+                </tr>`;
+              }).join('')}
           </tbody>
         </table>
       </div>
@@ -91,13 +102,11 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
 
   const msgEl = container.querySelector<HTMLElement>('#mov-msg');
   const setMsg = (t: string): void => { if (msgEl) msgEl.textContent = t; };
+  const rerender = (): void => renderMovimientos(state, container, onUpdate);
 
   // Cambiar mes activo
   container.querySelectorAll<HTMLButtonElement>('.month-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.currentMonth = btn.dataset.mes;
-      renderMovimientos(state, container, onUpdate);
-    });
+    btn.addEventListener('click', () => { state.currentMonth = btn.dataset.mes; rerender(); });
   });
 
   // Cambiar categoría (mover/recategorizar)
@@ -112,7 +121,7 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
   container.querySelectorAll<HTMLSelectElement>('.mes-select').forEach(sel => {
     sel.addEventListener('change', () => {
       const mov = state.movimientos.find(m => m.id === sel.dataset.id);
-      if (mov) { mov.mes = sel.value; onUpdate(); renderMovimientos(state, container, onUpdate); }
+      if (mov) { mov.mes = sel.value; onUpdate(); rerender(); }
     });
   });
 
@@ -120,8 +129,7 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
   container.querySelectorAll<HTMLButtonElement>('.btn-del').forEach(btn => {
     btn.addEventListener('click', () => {
       state.movimientos = state.movimientos.filter(m => m.id !== btn.dataset.id);
-      onUpdate();
-      renderMovimientos(state, container, onUpdate);
+      onUpdate(); rerender();
     });
   });
 
@@ -131,38 +139,66 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
     if (form) form.style.display = form.style.display === 'none' ? 'flex' : 'none';
   });
   container.querySelector<HTMLButtonElement>('#btn-add-save')?.addEventListener('click', () => {
+    const tipo = (container.querySelector<HTMLSelectElement>('#m-tipo')?.value as Movimiento['tipo']) || 'gasto';
     const fecha = container.querySelector<HTMLInputElement>('#m-fecha')?.value || new Date().toISOString().slice(0, 10);
     const descripcion = container.querySelector<HTMLInputElement>('#m-desc')?.value.trim() || '';
     const monto = parseFloat(container.querySelector<HTMLInputElement>('#m-monto')?.value || '0') || 0;
-    const categoria = container.querySelector<HTMLSelectElement>('.cat-select[data-id="new"]')?.value || '';
+    const categoria = tipo === 'gasto' ? (container.querySelector<HTMLSelectElement>('.cat-select[data-id="new"]')?.value || '') : '';
     if (!descripcion || monto <= 0) { setMsg('❌ Pon descripción y monto > 0.'); return; }
-    const nuevo: Movimiento = {
-      id: crypto.randomUUID(),
-      fecha,
-      descripcion,
-      monto,
-      categoria,
-      mes: mesDesdeFecha(fecha),
-      origen: 'manual',
-    };
-    state.movimientos.push(nuevo);
-    state.currentMonth = nuevo.mes;
-    onUpdate();
-    renderMovimientos(state, container, onUpdate);
+    state.movimientos.push({
+      id: crypto.randomUUID(), fecha, descripcion, monto, tipo, categoria,
+      mes: mesDesdeFecha(fecha), origen: 'manual',
+    });
+    state.currentMonth = mesDesdeFecha(fecha);
+    onUpdate(); rerender();
   });
 
-  // Clasificar con IA
+  // Subir CSV
+  const csvInput = container.querySelector<HTMLInputElement>('#csv-file');
+  container.querySelector<HTMLButtonElement>('#btn-csv')?.addEventListener('click', () => csvInput?.click());
+  csvInput?.addEventListener('change', () => {
+    const file = csvInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const rows = parseCsv(String(ev.target?.result ?? ''));
+        if (rows.length === 0) { setMsg('❌ No se detectaron movimientos en el CSV.'); return; }
+        const existentes = new Set(state.movimientos.map(m => `${m.fecha}|${m.descripcion}|${m.monto}|${m.tipo}`));
+        let n = 0;
+        rows.forEach(r => {
+          const tipo: Movimiento['tipo'] = r.monto < 0 ? 'gasto' : 'ingreso';
+          const monto = Math.abs(r.monto);
+          const key = `${r.fecha}|${r.descripcion}|${monto}|${tipo}`;
+          if (monto <= 0 || existentes.has(key)) return;
+          existentes.add(key);
+          state.movimientos.push({
+            id: crypto.randomUUID(), fecha: r.fecha, descripcion: r.descripcion, monto, tipo,
+            categoria: '', mes: mesDesdeFecha(r.fecha), origen: 'csv',
+          });
+          n++;
+        });
+        onUpdate(); rerender();
+        setMsg(`✅ CSV importado: ${n} movimientos nuevos. Pulsa "Clasificar con IA" para los gastos.`);
+      } catch (e) {
+        setMsg(`❌ Error leyendo CSV: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // Clasificar con IA (solo gastos)
   container.querySelector<HTMLButtonElement>('#btn-classify')?.addEventListener('click', async () => {
-    const pendientes = delMes.filter(m => !m.categoria);
-    const objetivo = pendientes.length > 0 ? pendientes : delMes;
-    if (objetivo.length === 0) { setMsg('No hay movimientos para clasificar en este mes.'); return; }
+    const gastos = delMes.filter(m => m.tipo === 'gasto');
+    const pendientes = gastos.filter(m => !m.categoria);
+    const objetivo = pendientes.length > 0 ? pendientes : gastos;
+    if (objetivo.length === 0) { setMsg('No hay gastos para clasificar en este mes.'); return; }
     setMsg('🤖 Clasificando con IA…');
     try {
       const map = await classifyMovimientos(objetivo);
       let n = 0;
       objetivo.forEach(m => { if (map[m.id]) { m.categoria = map[m.id]; n++; } });
-      onUpdate();
-      renderMovimientos(state, container, onUpdate);
+      onUpdate(); rerender();
       setMsg(`✅ IA clasificó ${n} de ${objetivo.length}. Revisa y ajusta lo que quieras.`);
     } catch (e) {
       setMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);

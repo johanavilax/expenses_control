@@ -106,6 +106,7 @@ export function renderBanco(state: AppState, container: HTMLElement, onUpdate: (
         fecha,
         descripcion: t.description ?? '(sin descripción)',
         monto,
+        tipo: 'gasto',
         categoria: '',
         mes: mesDesdeFecha(fecha),
         origen: 'basiq',

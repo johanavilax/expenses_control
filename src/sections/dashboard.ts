@@ -6,10 +6,22 @@ import type { AppState } from '../types';
 
 let chartPresup: Chart | null = null;
 
-/** Suma de movimientos reales por categoría para un mes. */
+const MES_CORTO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const YEARS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032];
+
+function parseMes(label: string): { mIdx: number; year: number } {
+  const [mon, yy] = label.split('-');
+  const mIdx = Math.max(0, MES_CORTO.indexOf(mon));
+  return { mIdx, year: 2000 + (parseInt(yy, 10) || 26) };
+}
+function buildMes(mIdx: number, year: number): string {
+  return `${MES_CORTO[mIdx]}-${String(year).slice(2)}`;
+}
+
+/** Suma de movimientos GASTO reales por categoría para un mes. */
 function realPorCategoria(state: AppState, mes: string): Record<string, number> {
   const out: Record<string, number> = {};
-  state.movimientos.filter(m => m.mes === mes && m.categoria).forEach(m => {
+  state.movimientos.filter(m => m.mes === mes && m.tipo === 'gasto' && m.categoria).forEach(m => {
     out[m.categoria] = (out[m.categoria] || 0) + m.monto;
   });
   return out;
@@ -35,12 +47,23 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
     return { label: c.label, pres, real: r, diff: r - pres };
   }).filter(f => f.pres > 0 || f.real > 0);
   const totalReal = Object.values(real).reduce((a, b) => a + b, 0);
-  const sinClasif = state.movimientos.filter(m => m.mes === mes && !m.categoria).length;
+  const sinClasif = state.movimientos.filter(m => m.mes === mes && m.tipo === 'gasto' && !m.categoria).length;
+  const ingresoInversion = state.movimientos
+    .filter(m => m.mes === mes && m.tipo === 'ingreso')
+    .reduce((a, m) => a + m.monto, 0);
+  const { mIdx, year } = parseMes(mes);
 
   container.innerHTML = `
     <div class="section-header">
       <h2>🏠 Dashboard Principal</h2>
-      <div class="month-badge">${mes}</div>
+      <div class="month-selector" style="display:flex;gap:0.5rem">
+        <select id="dash-mes" class="config-input" style="width:auto">
+          ${MES_CORTO.map((m, i) => `<option value="${i}" ${i === mIdx ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+        <select id="dash-anio" class="config-input" style="width:auto">
+          ${YEARS.map(y => `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     <div class="kpi-grid">
@@ -63,6 +86,10 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
       <div class="kpi-card">
         <div class="kpi-label">🛡️ Aporte colchón</div>
         <div class="kpi-value kpi-anim">${fmtAUD(colchon)}</div>
+      </div>
+      <div class="kpi-card ${ingresoInversion > 0 ? 'success' : ''}">
+        <div class="kpi-label">📈 Ingreso inversiones</div>
+        <div class="kpi-value kpi-anim">${fmtAUD(ingresoInversion)}</div>
       </div>
       <div class="kpi-card highlight">
         <div class="kpi-label">🎯 FI Number</div>
@@ -157,6 +184,18 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
       },
     });
   }
+
+  // Selectores de mes / año
+  const mesSel = container.querySelector<HTMLSelectElement>('#dash-mes');
+  const anioSel = container.querySelector<HTMLSelectElement>('#dash-anio');
+  const onPeriodChange = (): void => {
+    const m = parseInt(mesSel?.value ?? '0', 10);
+    const y = parseInt(anioSel?.value ?? String(year), 10);
+    state.currentMonth = buildMes(m, y);
+    renderDashboard(state, container);
+  };
+  mesSel?.addEventListener('change', onPeriodChange);
+  anioSel?.addEventListener('change', onPeriodChange);
 
   // Animate progress bar
   requestAnimationFrame(() => {
