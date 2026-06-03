@@ -2,7 +2,6 @@ import { BUDGET_CATEGORIES, MONTHS } from '../data/defaultConfig';
 import { classifyMovimientos } from '../utils/classify';
 import { isSupabaseConfigured } from '../utils/supabase';
 import { parseCsv } from '../utils/csv';
-import { fmtAUD } from '../utils/format';
 import type { AppState, Movimiento } from '../types';
 
 const MES_CORTO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -16,6 +15,11 @@ export function mesDesdeFecha(iso: string): string {
 
 function catLabel(id: string): string {
   return BUDGET_CATEGORIES.find(c => c.id === id)?.label ?? '— sin clasificar —';
+}
+
+/** Escapa comillas para usar texto dentro de un atributo value="". */
+function attr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 /** <select> agrupado por grupo de presupuesto. */
@@ -85,9 +89,9 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
                 const esIng = m.tipo === 'ingreso';
                 const resaltar = !esIng && !m.categoria;
                 return `<tr ${resaltar ? 'class="highlight-row"' : ''}>
-                  <td>${m.fecha?.slice(0, 10) ?? ''}</td>
-                  <td>${m.descripcion}</td>
-                  <td style="text-align:right" class="${esIng ? 'green' : ''}">${esIng ? '+' : ''}${fmtAUD(m.monto)}</td>
+                  <td><input type="date" class="fecha-input inline-input" data-id="${m.id}" value="${m.fecha?.slice(0, 10) ?? ''}"></td>
+                  <td><input type="text" class="desc-input inline-input" data-id="${m.id}" value="${attr(m.descripcion)}" style="min-width:160px"></td>
+                  <td><input type="number" class="monto-input inline-input ${esIng ? 'green' : ''}" data-id="${m.id}" value="${m.monto}" min="0" step="0.01" style="width:90px;text-align:right"></td>
                   <td>${esIng ? '💰 Ingreso inversión' : categorySelect(m.categoria, 'cat-select', m.id)}</td>
                   <td>${monthSelect(m.mes, 'mes-select', m.id)}</td>
                   <td><button class="btn-danger btn-del" data-id="${m.id}" title="Eliminar">🗑️</button></td>
@@ -114,6 +118,30 @@ export function renderMovimientos(state: AppState, container: HTMLElement, onUpd
     sel.addEventListener('change', () => {
       const mov = state.movimientos.find(m => m.id === sel.dataset.id);
       if (mov) { mov.categoria = sel.value; onUpdate(); setMsg(`✅ "${mov.descripcion}" → ${catLabel(sel.value)}`); }
+    });
+  });
+
+  // Editar fecha (puede cambiar de mes)
+  container.querySelectorAll<HTMLInputElement>('.fecha-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const mov = state.movimientos.find(m => m.id === inp.dataset.id);
+      if (mov && inp.value) { mov.fecha = inp.value; mov.mes = mesDesdeFecha(inp.value); onUpdate(); rerender(); }
+    });
+  });
+
+  // Editar descripción
+  container.querySelectorAll<HTMLInputElement>('.desc-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const mov = state.movimientos.find(m => m.id === inp.dataset.id);
+      if (mov) { mov.descripcion = inp.value.trim(); onUpdate(); }
+    });
+  });
+
+  // Editar monto
+  container.querySelectorAll<HTMLInputElement>('.monto-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const mov = state.movimientos.find(m => m.id === inp.dataset.id);
+      if (mov) { mov.monto = parseFloat(inp.value) || 0; onUpdate(); }
     });
   });
 
