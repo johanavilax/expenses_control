@@ -1,7 +1,10 @@
+import Chart from 'chart.js/auto';
 import { calcIngreso, calcTotalGasto, calcFiNumber, calcKPIs } from '../utils/calculations';
 import { fmtAUD, fmtPct } from '../utils/format';
 import { BUDGET_CATEGORIES } from '../data/defaultConfig';
 import type { AppState } from '../types';
+
+let chartPresup: Chart | null = null;
 
 /** Suma de movimientos reales por categoría para un mes. */
 function realPorCategoria(state: AppState, mes: string): Record<string, number> {
@@ -104,6 +107,9 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
         <h3>📋 Presupuesto vs Real — ${mes}</h3>
         <span style="opacity:0.75">Gasto real: <strong>${fmtAUD(totalReal)}</strong>${sinClasif ? ` · ⚠️ ${sinClasif} sin clasificar` : ''}</span>
       </div>
+      <div style="height:${Math.max(320, filas.length * 26)}px;margin:1rem 0">
+        <canvas id="chartPresup"></canvas>
+      </div>
       <div class="table-wrapper">
         <table class="data-table">
           <thead><tr><th>Categoría</th><th style="text-align:right">Presupuesto</th><th style="text-align:right">Real</th><th style="text-align:right">Diferencia</th></tr></thead>
@@ -123,6 +129,34 @@ export function renderDashboard(state: AppState, container: HTMLElement): void {
       </div>
     </div>
   `;
+
+  // Gráfico Presupuesto vs Real por categoría
+  if (chartPresup) chartPresup.destroy();
+  const canvas = container.querySelector<HTMLCanvasElement>('#chartPresup');
+  if (canvas && filas.length > 0) {
+    chartPresup = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: filas.map(f => f.label),
+        datasets: [
+          { label: 'Presupuesto', data: filas.map(f => f.pres), backgroundColor: '#2E75B6' },
+          { label: 'Real', data: filas.map(f => f.real), backgroundColor: '#00C896' },
+        ],
+      },
+      options: {
+        indexAxis: 'y',
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94A3B8' } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtAUD(ctx.parsed.x ?? 0)}` } },
+        },
+        scales: {
+          x: { ticks: { color: '#94A3B8', callback: v => fmtAUD(Number(v)) }, grid: { color: '#2D3748' } },
+          y: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { display: false } },
+        },
+      },
+    });
+  }
 
   // Animate progress bar
   requestAnimationFrame(() => {
