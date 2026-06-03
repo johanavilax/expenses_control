@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG: Config = {
   horizonte: 20,
   fi_number: 1200000,
   colchon_meta_meses: 6,
-  colchon_aporte: 500,
+  colchon_aporte: 800,
   cop_deuda: 3000000,
   cop_ingreso: 1500000,
   cop_cuota: 900000,
@@ -64,7 +64,7 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
   { id: 'buffer', label: '🎲 Buffer imprevistos', budget: 100, group: 'varios' },
   { id: 'gastos_tu', label: '👤 Gastos pers. Tú', budget: 200, group: 'varios' },
   { id: 'gastos_pareja', label: '👤 Gastos pers. Pareja', budget: 200, group: 'varios' },
-  { id: 'colchon', label: '🛡️ Colchón → ING/AMP', budget: 500, group: 'colchon' },
+  { id: 'colchon', label: '🛡️ Colchón → ING/AMP', budget: 800, group: 'colchon' },
   { id: 'inversion', label: '🚀 Inversión LF', budget: 2200, group: 'inversion' },
   { id: 'super_voluntario', label: '💼 Super voluntario', budget: 0, group: 'inversion' },
 ];
