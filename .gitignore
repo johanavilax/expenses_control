@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env — ignora secretos pero mantiene el ejemplo versionado
+.env
+.env.*
+!.env.example
+
+# Supabase CLI (temporales y secretos locales)
+supabase/.temp
+supabase/.branches
+.branches

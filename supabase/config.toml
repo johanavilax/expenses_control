@@ -1,0 +1,5 @@
+# Identificador local del proyecto (no es tu project-ref remoto).
+project_id = "gastos"
+
+[functions.basiq]
+verify_jwt = false

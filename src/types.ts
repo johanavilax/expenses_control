@@ -54,6 +54,8 @@ export interface AppState {
   colchon_real: Record<string, number>;
   notas: Record<string, string>;
   currentMonth?: string;
+  /** ID del usuario en Basiq, tras conectar la cuenta bancaria. */
+  basiqUserId?: string;
 }
 
 export interface CapitalPoint {

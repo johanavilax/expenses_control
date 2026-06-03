@@ -1,7 +1,12 @@
 import { DEFAULT_CONFIG, BUDGET_CATEGORIES, MONTHS } from '../data/defaultConfig';
+import { supabase } from './supabase';
 import type { AppState, Presupuesto } from '../types';
 
 const STORAGE_KEY = 'lf_dashboard';
+
+/** Tabla y fila únicas en Supabase (app de un solo usuario). */
+const CLOUD_TABLE = 'lf_state';
+const CLOUD_ID = 'default';
 
 function getDefaultBudget(): Presupuesto {
   const budget: Presupuesto = {};
@@ -33,4 +38,28 @@ export function saveState(state: AppState): void {
 export function resetState(): AppState {
   localStorage.removeItem(STORAGE_KEY);
   return loadState();
+}
+
+/** Sube el estado completo a Supabase. No-op si no está configurado. */
+export async function pushStateToCloud(state: AppState): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from(CLOUD_TABLE)
+    .upsert({ id: CLOUD_ID, data: state, updated_at: new Date().toISOString() });
+  if (error) console.warn('[supabase] push falló:', error.message);
+}
+
+/** Lee el estado desde Supabase. Devuelve null si no hay datos o no está configurado. */
+export async function pullStateFromCloud(): Promise<AppState | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from(CLOUD_TABLE)
+    .select('data')
+    .eq('id', CLOUD_ID)
+    .maybeSingle();
+  if (error) {
+    console.warn('[supabase] pull falló:', error.message);
+    return null;
+  }
+  return (data?.data as AppState) ?? null;
 }

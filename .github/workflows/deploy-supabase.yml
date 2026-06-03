@@ -1,0 +1,34 @@
+name: Deploy Supabase (migraciones + función basiq)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link al proyecto
+        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Aplicar migraciones
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Desplegar función basiq
+        run: supabase functions deploy basiq --project-ref "$PROJECT_REF"
+
+      - name: Setear secreto de Basiq
+        run: supabase secrets set BASIQ_API_KEY="${{ secrets.BASIQ_API_KEY }}" --project-ref "$PROJECT_REF"

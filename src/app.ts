@@ -1,10 +1,11 @@
-import { loadState, saveState, resetState } from './utils/storage';
+import { loadState, saveState, resetState, pushStateToCloud, pullStateFromCloud } from './utils/storage';
 import { renderDashboard } from './sections/dashboard';
 import { renderPresupuesto } from './sections/presupuesto';
 import { renderMetas } from './sections/metas';
 import { renderProyeccion } from './sections/proyeccion';
 import { renderColchon } from './sections/colchon';
 import { renderColombia } from './sections/colombia';
+import { renderBanco } from './sections/banco';
 import { renderConfiguracion } from './sections/configuracion';
 import type { AppState } from './types';
 
@@ -21,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'proyeccion', icon: '🚀', label: 'Proyección LF' },
   { id: 'colchon', icon: '🛡️', label: 'Colchón' },
   { id: 'colombia', icon: '🇨🇴', label: 'Colombia' },
+  { id: 'banco', icon: '🏦', label: 'Banco' },
   { id: 'config', icon: '⚙️', label: 'Config' },
 ];
 
@@ -49,6 +51,7 @@ function renderSection(section: string): void {
       case 'proyeccion': renderProyeccion(state, content); break;
       case 'colchon': renderColchon(state, content); break;
       case 'colombia': renderColombia(state, content); break;
+      case 'banco': renderBanco(state, content, handleUpdate); break;
       case 'config': renderConfiguracion(state, content, handleUpdate, handleReset); break;
     }
   }, 80);
@@ -56,8 +59,19 @@ function renderSection(section: string): void {
 
 function handleUpdate(): void {
   saveState(state);
+  void pushStateToCloud(state);
   updateSaveBtnVisibility(false);
   if (currentSection === 'dashboard') renderSection('dashboard');
+}
+
+/** Trae el estado de la nube al arrancar; si existe, reemplaza el local y re-renderiza. */
+async function hydrateFromCloud(): Promise<void> {
+  const remote = await pullStateFromCloud();
+  if (!remote) return;
+  state = remote;
+  state.currentMonth = state.currentMonth || 'May-26';
+  saveState(state);
+  renderSection(currentSection);
 }
 
 function handleReset(): void {
@@ -143,4 +157,7 @@ export function initApp(): void {
 
   // Initial render
   renderSection('dashboard');
+
+  // Sincroniza con la nube (no-op si Supabase no está configurado)
+  void hydrateFromCloud();
 }
