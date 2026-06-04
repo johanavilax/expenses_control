@@ -48,7 +48,8 @@ export interface KpiResult extends KpiLimit {
 /** Per-month, per-category budgeted amounts. */
 export type Presupuesto = Record<string, Record<string, number>>;
 
-export type MovimientoTipo = 'gasto' | 'ingreso';
+/** Tipo de movimiento: un gasto, o un ingreso (sueldo / inversión / esporádico). */
+export type MovimientoTipo = 'gasto' | 'sueldo' | 'inversion' | 'esporadica';
 /** A quién corresponde el movimiento dentro del hogar. */
 export type Persona = 'tu' | 'pareja' | 'conjunto';
 
@@ -60,7 +61,7 @@ export interface Movimiento {
   descripcion: string;
   /** Monto en AUD (positivo). Su signo lo define `tipo`. */
   monto: number;
-  /** Gasto (sale) o ingreso (entra, p.ej. inversiones). */
+  /** gasto | sueldo | inversion | esporadica. */
   tipo: MovimientoTipo;
   /** id de BUDGET_CATEGORIES, o '' si está sin clasificar / es ingreso. */
   categoria: string;

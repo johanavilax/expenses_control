@@ -6,7 +6,6 @@ import { BUDGET_CATEGORIES, MONTHS } from '@/lib/defaultConfig';
 import { mesDesdeFecha } from '@/lib/meses';
 import { parseCsv } from '@/lib/csv';
 import { classifyMovimientos } from '@/lib/api';
-import { fmtAUD } from '@/lib/format';
 import type { Movimiento, Persona } from '@/lib/types';
 
 const GROUPS = [...new Set(BUDGET_CATEGORIES.map(c => c.group))];
@@ -14,6 +13,13 @@ const PERSONAS: { value: Persona; label: string }[] = [
   { value: 'conjunto', label: '👥 Conjunto' },
   { value: 'tu', label: '🧑 Tú' },
   { value: 'pareja', label: '🧑‍🤝‍🧑 Pareja' },
+];
+
+const TIPOS: { value: Movimiento['tipo']; label: string }[] = [
+  { value: 'gasto', label: '🛒 Gasto' },
+  { value: 'sueldo', label: '💼 Sueldo' },
+  { value: 'inversion', label: '📈 Inversión' },
+  { value: 'esporadica', label: '🎁 Ganancia esporádica' },
 ];
 
 function CategoryOptions() {
@@ -75,7 +81,7 @@ export default function Movimientos() {
         update(d => {
           const seen = new Set(d.movimientos.map(m => `${m.fecha}|${m.descripcion}|${m.monto}|${m.tipo}`));
           rows.forEach(r => {
-            const t: Movimiento['tipo'] = r.monto < 0 ? 'gasto' : 'ingreso';
+            const t: Movimiento['tipo'] = r.monto < 0 ? 'gasto' : 'esporadica';
             const mt = Math.abs(r.monto);
             const key = `${r.fecha}|${r.descripcion}|${mt}|${t}`;
             if (mt <= 0 || seen.has(key)) return;
@@ -142,8 +148,7 @@ export default function Movimientos() {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'end', marginBottom: '1rem' }}>
             <div className="config-field"><label>Tipo</label>
               <select className="config-input" value={tipo} onChange={e => setTipo(e.target.value as Movimiento['tipo'])}>
-                <option value="gasto">Gasto</option>
-                <option value="ingreso">Ingreso por inversión</option>
+                {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div className="config-field"><label>Fecha</label>
@@ -171,7 +176,7 @@ export default function Movimientos() {
               {delMes.length === 0 ? (
                 <tr><td colSpan={7} style={{ opacity: 0.6 }}>Sin movimientos en {mes}. Importa de 🏦 Banco, sube un CSV o añade manual.</td></tr>
               ) : delMes.map(m => {
-                const esIng = m.tipo === 'ingreso';
+                const esIng = m.tipo !== 'gasto';
                 return (
                   <tr key={m.id} className={!esIng && !m.categoria ? 'highlight-row' : ''}>
                     <td><input type="date" className="inline-input" value={m.fecha?.slice(0, 10) ?? ''}
@@ -181,7 +186,11 @@ export default function Movimientos() {
                     <td><input type="number" className={`inline-input ${esIng ? 'green' : ''}`} value={m.monto} min={0} step={0.01}
                       style={{ width: 90, textAlign: 'right' }}
                       onChange={e => editField(m.id, x => { x.monto = parseFloat(e.target.value) || 0; })} /></td>
-                    <td>{esIng ? '💰 Ingreso inversión' : (
+                    <td>{esIng ? (
+                      <select className="inline-input" value={m.tipo} onChange={e => editField(m.id, x => { x.tipo = e.target.value as Movimiento['tipo']; })}>
+                        {TIPOS.filter(t => t.value !== 'gasto').map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    ) : (
                       <select className="inline-input" value={m.categoria} onChange={e => editField(m.id, x => { x.categoria = e.target.value; })}>
                         <CategoryOptions />
                       </select>

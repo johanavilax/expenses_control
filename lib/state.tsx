@@ -31,7 +31,11 @@ function normalize(s: Partial<AppState>): AppState {
   return {
     ...emptyState(),
     ...s,
-    movimientos: (s.movimientos ?? []).map(m => ({ ...m, tipo: m.tipo ?? 'gasto', persona: m.persona ?? 'conjunto' })),
+    movimientos: (s.movimientos ?? []).map(m => ({
+      ...m,
+      tipo: ((m.tipo as string) === 'ingreso' ? 'inversion' : m.tipo) ?? 'gasto',
+      persona: m.persona ?? 'conjunto',
+    })),
     currentMonth: s.currentMonth ?? 'May-26',
   };
 }

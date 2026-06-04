@@ -48,8 +48,8 @@ export default function Dashboard() {
   }).filter(f => f.pres > 0 || f.real > 0);
   const totalReal = Object.values(real).reduce((a, b) => a + b, 0);
   const sinClasif = state.movimientos.filter(m => m.mes === mes && m.tipo === 'gasto' && !m.categoria).length;
-  const ingresoInversion = state.movimientos
-    .filter(m => m.mes === mes && m.tipo === 'ingreso' && (filtro === 'hogar' || m.persona === filtro))
+  const ingresosRegistrados = state.movimientos
+    .filter(m => m.mes === mes && m.tipo !== 'gasto' && (filtro === 'hogar' || m.persona === filtro))
     .reduce((a, m) => a + m.monto, 0);
   const { mIdx, year } = parseMes(mes);
 
@@ -96,9 +96,9 @@ export default function Dashboard() {
           <div className="kpi-label">🛡️ Aporte colchón</div>
           <div className="kpi-value">{fmtAUD(colchon)}</div>
         </div>
-        <div className={`kpi-card ${ingresoInversion > 0 ? 'success' : ''}`}>
-          <div className="kpi-label">📈 Ingreso inversiones</div>
-          <div className="kpi-value">{fmtAUD(ingresoInversion)}</div>
+        <div className={`kpi-card ${ingresosRegistrados > 0 ? 'success' : ''}`}>
+          <div className="kpi-label">📈 Ingresos registrados</div>
+          <div className="kpi-value">{fmtAUD(ingresosRegistrados)}</div>
         </div>
         <div className="kpi-card highlight">
           <div className="kpi-label">🎯 FI Number</div>
