@@ -81,19 +81,20 @@ export default function Movimientos() {
         update(d => {
           const seen = new Set(d.movimientos.map(m => `${m.fecha}|${m.descripcion}|${m.monto}|${m.tipo}`));
           rows.forEach(r => {
-            const t: Movimiento['tipo'] = r.monto < 0 ? 'gasto' : 'esporadica';
+            // Solo importamos gastos (débitos). Los ingresos se registran explícitamente.
+            if (r.monto >= 0) return;
             const mt = Math.abs(r.monto);
-            const key = `${r.fecha}|${r.descripcion}|${mt}|${t}`;
+            const key = `${r.fecha}|${r.descripcion}|${mt}|gasto`;
             if (mt <= 0 || seen.has(key)) return;
             seen.add(key);
             d.movimientos.push({
               id: crypto.randomUUID(), fecha: r.fecha, descripcion: r.descripcion, monto: mt,
-              tipo: t, categoria: '', mes: mesDesdeFecha(r.fecha), persona: 'conjunto', origen: 'csv',
+              tipo: 'gasto', categoria: '', mes: mesDesdeFecha(r.fecha), persona: 'conjunto', origen: 'csv',
             });
             n++;
           });
         });
-        setMsg(`✅ CSV importado: ${n} movimientos nuevos. Pulsa "Clasificar con IA" para los gastos.`);
+        setMsg(`✅ CSV importado: ${n} gastos nuevos. Los ingresos agrégalos a mano. Pulsa "Clasificar con IA".`);
       } catch (err) {
         setMsg(`❌ Error leyendo CSV: ${err instanceof Error ? err.message : String(err)}`);
       }
