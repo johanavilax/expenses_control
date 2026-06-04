@@ -19,10 +19,15 @@ export default function Metas() {
   groupLabels.forEach(g => { idealTotals[g] = 0; });
   BUDGET_CATEGORIES.forEach(c => { idealTotals[c.group] = (idealTotals[c.group] || 0) + c.budget; });
 
-  const realTotals = calcGrupoPorMes(presupuesto, mes);
+  // "Real" = gasto real de los movimientos del mes (no el presupuesto).
+  const realByCat: Record<string, number> = {};
+  state.movimientos
+    .filter(m => m.mes === mes && m.tipo === 'gasto' && m.categoria)
+    .forEach(m => { realByCat[m.categoria] = (realByCat[m.categoria] || 0) + m.monto; });
   const realGroupTotals: Record<string, number> = {};
   groupLabels.forEach(g => { realGroupTotals[g] = 0; });
-  BUDGET_CATEGORIES.forEach(c => { realGroupTotals[c.group] = (realGroupTotals[c.group] || 0) + (realTotals[c.id] || 0); });
+  BUDGET_CATEGORIES.forEach(c => { realGroupTotals[c.group] = (realGroupTotals[c.group] || 0) + (realByCat[c.id] || 0); });
+  const hayReal = Object.values(realGroupTotals).some(v => v > 0);
 
   const donutLabels = groupLabels.map(g => g.charAt(0).toUpperCase() + g.slice(1));
   const colors = groupLabels.map(g => GROUP_COLORS[g]);
@@ -58,7 +63,13 @@ export default function Metas() {
         </div>
         <div className="card donut-card">
           <h3>Real — {mes}</h3>
-          <Doughnut data={{ labels: donutLabels, datasets: [{ data: groupLabels.map(g => realGroupTotals[g] || 0), backgroundColor: colors }] }} options={donutOptions} />
+          {hayReal ? (
+            <Doughnut data={{ labels: donutLabels, datasets: [{ data: groupLabels.map(g => realGroupTotals[g] || 0), backgroundColor: colors }] }} options={donutOptions} />
+          ) : (
+            <p style={{ opacity: 0.6, padding: '2rem 0', textAlign: 'center' }}>
+              Aún no hay gastos reales en {mes}.<br />Agrégalos en 🧾 Movimientos.
+            </p>
+          )}
         </div>
       </div>
 
