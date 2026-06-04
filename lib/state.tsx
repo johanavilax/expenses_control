@@ -31,7 +31,7 @@ function normalize(s: Partial<AppState>): AppState {
   return {
     ...emptyState(),
     ...s,
-    movimientos: (s.movimientos ?? []).map(m => ({ ...m, tipo: m.tipo ?? 'gasto' })),
+    movimientos: (s.movimientos ?? []).map(m => ({ ...m, tipo: m.tipo ?? 'gasto', persona: m.persona ?? 'conjunto' })),
     currentMonth: s.currentMonth ?? 'May-26',
   };
 }
@@ -60,7 +60,7 @@ export function useAppState(): Ctx {
   return ctx;
 }
 
-export function StateProvider({ userId, userEmail, children }: { userId: string; userEmail: string; children: ReactNode }) {
+export function StateProvider({ storageKey, userId, userEmail, children }: { storageKey: string; userId: string; userEmail: string; children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const [state, setState] = useState<AppState>(emptyState);
   const [loading, setLoading] = useState(true);
@@ -70,19 +70,19 @@ export function StateProvider({ userId, userEmail, children }: { userId: string;
     const local = loadLocal();
     if (local && active) setState(local);
     (async () => {
-      const { data } = await supabase.from(CLOUD_TABLE).select('data').eq('id', userId).maybeSingle();
+      const { data } = await supabase.from(CLOUD_TABLE).select('data').eq('id', storageKey).maybeSingle();
       if (active && data?.data) setState(normalize(data.data as Partial<AppState>));
       if (active) setLoading(false);
     })();
     return () => { active = false; };
-  }, [supabase, userId]);
+  }, [supabase, storageKey]);
 
   const update = (mutator: (draft: AppState) => void): void => {
     setState(prev => {
       const next = structuredClone(prev);
       mutator(next);
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
-      void supabase.from(CLOUD_TABLE).upsert({ id: userId, data: next, updated_at: new Date().toISOString() });
+      void supabase.from(CLOUD_TABLE).upsert({ id: storageKey, data: next, updated_at: new Date().toISOString() });
       return next;
     });
   };

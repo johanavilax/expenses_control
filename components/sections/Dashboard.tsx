@@ -1,26 +1,34 @@
 'use client';
 
 import '@/lib/chartSetup';
+import { useState } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { useAppState } from '@/lib/state';
 import { calcIngreso, calcTotalGasto, calcFiNumber, calcKPIs } from '@/lib/calculations';
 import { fmtAUD, fmtPct } from '@/lib/format';
 import { BUDGET_CATEGORIES } from '@/lib/defaultConfig';
 import { MES_CORTO, parseMes, buildMes } from '@/lib/meses';
-import type { AppState } from '@/lib/types';
+import type { AppState, Persona } from '@/lib/types';
 
 const YEARS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032];
+type Filtro = 'hogar' | Persona;
+const FILTROS: { value: Filtro; label: string }[] = [
+  { value: 'hogar', label: '👥 Hogar' },
+  { value: 'tu', label: '🧑 Tú' },
+  { value: 'pareja', label: '🧑‍🤝‍🧑 Pareja' },
+];
 
-function realPorCategoria(state: AppState, mes: string): Record<string, number> {
+function realPorCategoria(state: AppState, mes: string, filtro: Filtro): Record<string, number> {
   const out: Record<string, number> = {};
-  state.movimientos.filter(m => m.mes === mes && m.tipo === 'gasto' && m.categoria).forEach(m => {
-    out[m.categoria] = (out[m.categoria] || 0) + m.monto;
-  });
+  state.movimientos
+    .filter(m => m.mes === mes && m.tipo === 'gasto' && m.categoria && (filtro === 'hogar' || m.persona === filtro))
+    .forEach(m => { out[m.categoria] = (out[m.categoria] || 0) + m.monto; });
   return out;
 }
 
 export default function Dashboard() {
   const { state, update } = useAppState();
+  const [filtro, setFiltro] = useState<Filtro>('hogar');
   const { config, presupuesto } = state;
   const mes = state.currentMonth || 'May-26';
   const ingreso = calcIngreso(config);
@@ -32,7 +40,7 @@ export default function Dashboard() {
   const progreso = config.capital_inicial / fiNumber;
   const kpis = calcKPIs(config, presupuesto, mes);
 
-  const real = realPorCategoria(state, mes);
+  const real = realPorCategoria(state, mes, filtro);
   const filas = BUDGET_CATEGORIES.map(c => {
     const pres = presupuesto?.[mes]?.[c.id] ?? c.budget;
     const r = real[c.id] ?? 0;
@@ -40,7 +48,9 @@ export default function Dashboard() {
   }).filter(f => f.pres > 0 || f.real > 0);
   const totalReal = Object.values(real).reduce((a, b) => a + b, 0);
   const sinClasif = state.movimientos.filter(m => m.mes === mes && m.tipo === 'gasto' && !m.categoria).length;
-  const ingresoInversion = state.movimientos.filter(m => m.mes === mes && m.tipo === 'ingreso').reduce((a, m) => a + m.monto, 0);
+  const ingresoInversion = state.movimientos
+    .filter(m => m.mes === mes && m.tipo === 'ingreso' && (filtro === 'hogar' || m.persona === filtro))
+    .reduce((a, m) => a + m.monto, 0);
   const { mIdx, year } = parseMes(mes);
 
   const setPeriod = (m: number, y: number): void => update(d => { d.currentMonth = buildMes(m, y); });
@@ -50,6 +60,10 @@ export default function Dashboard() {
       <div className="section-header">
         <h2>🏠 Dashboard Principal</h2>
         <div className="month-selector" style={{ display: 'flex', gap: '0.5rem' }}>
+          <select className="config-input" style={{ width: 'auto' }} value={filtro}
+            onChange={e => setFiltro(e.target.value as Filtro)}>
+            {FILTROS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
           <select className="config-input" style={{ width: 'auto' }} value={mIdx}
             onChange={e => setPeriod(Number(e.target.value), year)}>
             {MES_CORTO.map((m, i) => <option key={m} value={i}>{m}</option>)}

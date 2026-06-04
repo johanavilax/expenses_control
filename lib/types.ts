@@ -49,6 +49,8 @@ export interface KpiResult extends KpiLimit {
 export type Presupuesto = Record<string, Record<string, number>>;
 
 export type MovimientoTipo = 'gasto' | 'ingreso';
+/** A quién corresponde el movimiento dentro del hogar. */
+export type Persona = 'tu' | 'pareja' | 'conjunto';
 
 /** Un movimiento individual (gasto o ingreso), clasificable y editable. */
 export interface Movimiento {
@@ -64,6 +66,8 @@ export interface Movimiento {
   categoria: string;
   /** Mes al que pertenece, p.ej. "May-26". */
   mes: string;
+  /** Tú / Pareja / Conjunto (gasto del hogar). */
+  persona: Persona;
   origen: 'basiq' | 'manual' | 'csv';
 }
 

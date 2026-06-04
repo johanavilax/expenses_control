@@ -94,6 +94,16 @@ async function ensureUser(admin, email, password) {
   throw error ?? new Error(`No se pudo crear/encontrar el usuario ${email}`);
 }
 
+/** Devuelve el household_id del usuario; si no tiene, crea hogar + membresía. */
+async function ensureHousehold(admin, userId) {
+  const { data: m } = await admin.from('household_members').select('household_id').eq('user_id', userId).maybeSingle();
+  if (m?.household_id) return m.household_id;
+  const { data: hh, error } = await admin.from('households').insert({ name: 'Hogar' }).select('id').single();
+  if (error) throw new Error(`No se pudo crear el hogar: ${error.message}`);
+  await admin.from('household_members').upsert({ user_id: userId, household_id: hh.id });
+  return hh.id;
+}
+
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -104,15 +114,28 @@ async function main() {
   const users = seedUsers();
   const state = buildState();
 
+  // 1) Crea/encuentra los usuarios
+  const ids = [];
   for (const { email, password } of users) {
     const { user, creado } = await ensureUser(admin, email, password);
-    const { error } = await admin
-      .from('lf_state')
-      .upsert({ id: user.id, data: state, updated_at: new Date().toISOString() });
-    if (error) throw new Error(`No se pudo sembrar el estado de ${email}: ${error.message}`);
-    console.log(`✅ ${creado ? 'Creado' : 'Existente'} + sembrado: ${email} (${user.id})`);
+    ids.push(user.id);
+    console.log(`✅ ${creado ? 'Creado' : 'Existente'}: ${email} (${user.id})`);
   }
-  console.log(`\n🌱 Listo. ${users.length} usuario(s) sembrado(s) con el modelo Melbourne.`);
+  if (ids.length === 0) throw new Error('No hay usuarios para sembrar.');
+
+  // 2) Un hogar compartido: el del primer usuario, y todos pasan a él
+  const householdId = await ensureHousehold(admin, ids[0]);
+  for (const uid of ids.slice(1)) {
+    await admin.from('household_members').upsert({ user_id: uid, household_id: householdId });
+  }
+  console.log(`🏠 Hogar compartido: ${householdId} (${ids.length} miembros)`);
+
+  // 3) Siembra el estado del hogar
+  const { error } = await admin
+    .from('lf_state')
+    .upsert({ id: householdId, data: state, updated_at: new Date().toISOString() });
+  if (error) throw new Error(`No se pudo sembrar el estado del hogar: ${error.message}`);
+  console.log(`\n🌱 Listo. Hogar sembrado con el modelo Melbourne y ${ids.length} usuario(s).`);
 }
 
 main().catch((e) => {

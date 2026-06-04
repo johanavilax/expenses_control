@@ -52,7 +52,7 @@ export default function Banco() {
         d.movimientos.push({
           id: t.id, fecha, descripcion: t.description ?? '(sin descripción)',
           monto: Math.abs(parseFloat(t.amount) || 0), tipo: 'gasto', categoria: '',
-          mes: mesDesdeFecha(fecha), origen: 'basiq',
+          mes: mesDesdeFecha(fecha), persona: 'conjunto', origen: 'basiq',
         });
         n++;
       });

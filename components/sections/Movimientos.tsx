@@ -7,9 +7,14 @@ import { mesDesdeFecha } from '@/lib/meses';
 import { parseCsv } from '@/lib/csv';
 import { classifyMovimientos } from '@/lib/api';
 import { fmtAUD } from '@/lib/format';
-import type { Movimiento } from '@/lib/types';
+import type { Movimiento, Persona } from '@/lib/types';
 
 const GROUPS = [...new Set(BUDGET_CATEGORIES.map(c => c.group))];
+const PERSONAS: { value: Persona; label: string }[] = [
+  { value: 'conjunto', label: '👥 Conjunto' },
+  { value: 'tu', label: '🧑 Tú' },
+  { value: 'pareja', label: '🧑‍🤝‍🧑 Pareja' },
+];
 
 function CategoryOptions() {
   return (
@@ -39,6 +44,7 @@ export default function Movimientos() {
   const [desc, setDesc] = useState('');
   const [monto, setMonto] = useState('');
   const [cat, setCat] = useState('');
+  const [persona, setPersona] = useState<Persona>('conjunto');
   const fileRef = useRef<HTMLInputElement>(null);
 
   function setMonth(m: string) { update(d => { d.currentMonth = m; }); }
@@ -50,7 +56,7 @@ export default function Movimientos() {
     update(d => {
       d.movimientos.push({
         id: crypto.randomUUID(), fecha: f, descripcion: desc.trim(), monto: m,
-        tipo, categoria: tipo === 'gasto' ? cat : '', mes: mesDesdeFecha(f), origen: 'manual',
+        tipo, categoria: tipo === 'gasto' ? cat : '', mes: mesDesdeFecha(f), persona, origen: 'manual',
       });
       d.currentMonth = mesDesdeFecha(f);
     });
@@ -76,7 +82,7 @@ export default function Movimientos() {
             seen.add(key);
             d.movimientos.push({
               id: crypto.randomUUID(), fecha: r.fecha, descripcion: r.descripcion, monto: mt,
-              tipo: t, categoria: '', mes: mesDesdeFecha(r.fecha), origen: 'csv',
+              tipo: t, categoria: '', mes: mesDesdeFecha(r.fecha), persona: 'conjunto', origen: 'csv',
             });
             n++;
           });
@@ -150,16 +156,20 @@ export default function Movimientos() {
               <div className="config-field"><label>Categoría</label>
                 <select className="config-input" value={cat} onChange={e => setCat(e.target.value)}><CategoryOptions /></select></div>
             )}
+            <div className="config-field"><label>Persona</label>
+              <select className="config-input" value={persona} onChange={e => setPersona(e.target.value as Persona)}>
+                {PERSONAS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select></div>
             <button className="btn-primary" onClick={addManual}>Guardar</button>
           </div>
         )}
 
         <div className="table-wrapper">
           <table className="data-table">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Monto</th><th>Categoría / Tipo</th><th>Mes</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Monto</th><th>Categoría / Tipo</th><th>Persona</th><th>Mes</th><th></th></tr></thead>
             <tbody>
               {delMes.length === 0 ? (
-                <tr><td colSpan={6} style={{ opacity: 0.6 }}>Sin movimientos en {mes}. Importa de 🏦 Banco, sube un CSV o añade manual.</td></tr>
+                <tr><td colSpan={7} style={{ opacity: 0.6 }}>Sin movimientos en {mes}. Importa de 🏦 Banco, sube un CSV o añade manual.</td></tr>
               ) : delMes.map(m => {
                 const esIng = m.tipo === 'ingreso';
                 return (
@@ -176,6 +186,11 @@ export default function Movimientos() {
                         <CategoryOptions />
                       </select>
                     )}</td>
+                    <td>
+                      <select className="inline-input" value={m.persona} onChange={e => editField(m.id, x => { x.persona = e.target.value as Persona; })}>
+                        {PERSONAS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                      </select>
+                    </td>
                     <td>
                       <select className="inline-input" value={m.mes} onChange={e => editField(m.id, x => { x.mes = e.target.value; })}>
                         {MONTHS.map(mm => <option key={mm} value={mm}>{mm}</option>)}
