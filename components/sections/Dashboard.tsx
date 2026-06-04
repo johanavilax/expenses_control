@@ -136,7 +136,10 @@ export default function Dashboard() {
                 labels: filas.map(f => f.label),
                 datasets: [
                   { label: 'Presupuesto', data: filas.map(f => f.pres), backgroundColor: '#2E75B6' },
-                  { label: 'Real', data: filas.map(f => f.real), backgroundColor: '#00C896' },
+                  // La serie "Real" solo aparece cuando ya hay gastos clasificados
+                  ...(totalReal > 0
+                    ? [{ label: 'Real', data: filas.map(f => f.real), backgroundColor: '#00C896' }]
+                    : []),
                 ],
               }}
               options={{
