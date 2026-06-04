@@ -96,9 +96,9 @@ async function ensureUser(admin, email, password) {
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url) throw new Error('Falta VITE_SUPABASE_URL (o SUPABASE_URL).');
-  if (!serviceKey) throw new Error('Falta SUPABASE_SERVICE_ROLE_KEY (clave service_role).');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!url) throw new Error('Falta NEXT_PUBLIC_SUPABASE_URL (o SUPABASE_URL).');
+  if (!serviceKey) throw new Error('Falta SUPABASE_SERVICE_ROLE_KEY o SUPABASE_SECRET_KEY (clave secreta del server).');
 
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const users = seedUsers();
