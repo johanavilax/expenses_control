@@ -8,8 +8,8 @@ interface Field { key: keyof Cfg; label: string; min: number; max: number; step?
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   { title: '💵 Ingresos', fields: [
-    { key: 'ingreso_tu', label: 'Tu sueldo (A$)', min: 0, max: 20000 },
-    { key: 'ingreso_pareja', label: 'Sueldo pareja (A$)', min: 0, max: 20000 },
+    { key: 'ingreso_tu', label: "Johan's income (A$)", min: 0, max: 20000 },
+    { key: 'ingreso_pareja', label: "Laura's income (A$)", min: 0, max: 20000 },
     { key: 'ingreso_intereses', label: 'Intereses mensuales (A$)', min: 0, max: 1000 },
   ]},
   { title: '🚀 Modelo LF', fields: [
