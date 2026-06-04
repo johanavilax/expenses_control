@@ -76,10 +76,6 @@ export default function Dashboard() {
       </div>
 
       <div className="kpi-grid">
-        <div className="kpi-card">
-          <div className="kpi-label">💵 Ingreso presupuestado</div>
-          <div className="kpi-value">{fmtAUD(ingreso)}</div>
-        </div>
         <div className={`kpi-card ${gasto > ingreso ? 'danger' : ''}`}>
           <div className="kpi-label">📊 Gasto mensual</div>
           <div className="kpi-value">{fmtAUD(gasto)}</div>
@@ -97,9 +93,8 @@ export default function Dashboard() {
           <div className="kpi-value">{fmtAUD(colchon)}</div>
         </div>
         <div className={`kpi-card ${ingresosRegistrados > 0 ? 'success' : ''}`}>
-          <div className="kpi-label">💵 Ingreso real</div>
-          <div className="kpi-value">{fmtAUD(ingresosRegistrados)} <span className="kpi-pct">({ingreso > 0 ? fmtPct(ingresosRegistrados / ingreso) : '0%'})</span></div>
-          <div className="kpi-pct">real / presup. {fmtAUD(ingresosRegistrados)} / {fmtAUD(ingreso)}</div>
+          <div className="kpi-label">💵 Ingreso (real / presup.)</div>
+          <div className="kpi-value">{fmtAUD(ingresosRegistrados)} / {fmtAUD(ingreso)} <span className="kpi-pct">({ingreso > 0 ? fmtPct(ingresosRegistrados / ingreso) : '0%'})</span></div>
         </div>
         <div className="kpi-card highlight">
           <div className="kpi-label">🎯 FI Number</div>
